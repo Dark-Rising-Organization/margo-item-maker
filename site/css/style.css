@@ -35,7 +35,7 @@ input, select { color: #fff; background: #000000b3; border: 1px solid #333; padd
 
 a { color: #add8e6; }
 
-.button-wrapper { text-align: right; padding: 5px; }
+.slot-input { width: 48px; }
 
 .item-icon { background: url(https://experimental.margonem.pl/img/gui/it_borders.png); }
 .icon-rarity-1 { background-position: -32px 0; }
@@ -43,7 +43,7 @@ a { color: #add8e6; }
 .icon-rarity-3 { background-position: -64px 0; }
 .icon-rarity-4 { background-position: -128px 0; }
 
-.stat-group-title { grid-column: 1 / -1; margin: 12px 5px 2px; padding-bottom: 3px; border-bottom: 1px solid #555; font-weight: bold; color: #d9c38a; }
+.stat-group-title { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-end; margin: 12px 5px 2px; padding-bottom: 3px; border-bottom: 1px solid #555; font-weight: bold; color: #d9c38a; }
 .stat-input input:invalid { border-color: #e04040; background: #401010b3; }
 .item-basic-input input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
 /* --- Zakładki --- */
@@ -98,3 +98,5 @@ button:disabled { opacity: 0.5; cursor: default; }
 .stat-toolbar { display: flex; justify-content: flex-end; padding: 8px 5px 0; font-size: 13px; color: #ccc; }
 .stat-toolbar label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .stat-toolbar input { margin: 0; }
+/* Resetuj w linii z nagłówkiem pierwszej grupy statystyk */
+#reset-button { font-weight: normal; }

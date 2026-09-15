@@ -239,18 +239,16 @@ class Item {
         return result;
     }
 
-    // Wartość przedmiotu w złocie; extraStats - dodatkowe statystyki wpisane ręcznie.
+    // Wartość przedmiotu w złocie.
     // Wzór z dokumentacji (lvl_factor * class_factor * ...) nie zgadza się z grą - ten zgadza się z przedmiotami.
-    getValue(extraStats = {}) {
+    getValue() {
         const stats = this.export();
         stats.lvl = this.lvl.toString();
         if (this.profs.length) stats.reqp = this.profs.toString();
         stats.rarity = '';
 
         const statCount = new Set(
-            Object.keys(stats)
-                .concat(Object.keys(extraStats))
-                .filter((stat) => !VALUE_IGNORED_STATS.includes(stat)),
+            Object.keys(stats).filter((stat) => !VALUE_IGNORED_STATS.includes(stat)),
         ).size;
 
         const multiplier = Classes.valueMultiplier(this.cl);

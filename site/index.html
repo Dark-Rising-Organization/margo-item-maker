@@ -37,29 +37,28 @@
                     <button id="compare-clear" hidden>Wyczyść porównanie</button>
                 </div>
             </div>
+            <div class="save-box">
+                <div class="save-row">
+                    <label>Slot w torbie: <input type="number" class="slot-input" id="copy-slot" value="0"></label>
+                    <span class="save-buttons">
+                        <button id="copy-button">Skopiuj kod do pokazania itemu w grze</button>
+                        <button id="copy-stats-button">Skopiuj listę statystyk</button>
+                    </span>
+                </div>
+            </div>
             <div class="item-basic-input">Nazwa: <input id="name-input" value="Testowy przedmiot"></div>
             <div class="item-basic-input">Grafika: <input id="icon-input" placeholder="Domyślny placeholder"></div>
             <div class="item-basic-input">Typ przedmiotu: <select id="class-select"></select></div>
             <div class="item-basic-input">Rzadkość: <select id="rarity-select"></select></div>
             <div class="item-basic-input">Poziom: <input value="100" id="lvl-input"></div>
             <div class="item-basic-input">Wymagane profesje: <input placeholder="Literki profesji: wpbmth" id="prof-input"></div>
-            <div class="item-basic-input">Dodatkowe bonusy: <input id="extra-bonus-input"></div>
             <div class="item-basic-input"><label for="reward-bonus-input">Craft / tytan / quest / licytacja (+1 bonus)</label> <input type="checkbox" id="reward-bonus-input"></div>
             <div class="item-basic-input" id="folded-armor-row"><label for="folded-armor-input">Zbroja składana (+3 bonusy, poz. 300: +5; zamiast craftu)</label> <input type="checkbox" id="folded-armor-input"></div>
             <div class="item-basic-input" id="native-res-row">Typ natywnej odporności magicznej: <select id="native-res-select"></select></div>
-            <div class="item-basic-input">Dodatkowe statystyki: <input id="extra-stat-input" placeholder="W formacie: stat1=1;stat2=2"></div>
-            <div class="item-basic-input">Wartość: <input id="pr-input" value="0"></div>
             <div class="stat-toolbar">
                 <label><input type="checkbox" id="engine-names-toggle"> Nazwy silnikowe statystyk</label>
             </div>
             <div class="stat-inputs"></div>
-            <div class="button-wrapper">
-                <span>Slot</span>
-                <input type="number" style="width:32px" id="copy-slot" value="0">
-                <button id="copy-button">Skopiuj kod do pokazania itemu w grze</button>
-                <button id="copy-stats-button">Skopiuj listę statystyk</button>
-                <button id="reset-button">Resetuj</button>
-            </div>
         </div>
     </div>
     <div class="library" id="library-view" hidden>

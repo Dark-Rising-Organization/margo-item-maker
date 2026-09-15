@@ -36,6 +36,8 @@ v1.6.0
 - opcja "Zbroja składana" (+3 bonusy za utworzenie, na poziomie 300: +5)
 - ręczna zmiana typu natywnej odporności magicznej (ogień / zimno / błyskawice)
 - usunięto strzały (typ wycofany z gry; stare linki wczytują się jako kołczan)
+- usunięto pola: dodatkowe bonusy, dodatkowe statystyki, ręczna wartość (wartość zawsze liczona)
+- slot i przyciski kopiowania pod zapisem, Resetuj przy nagłówku statystyk
 - przycisk "Skopiuj listę statystyk"
 
 v1.5.0
@@ -84,12 +86,9 @@ const ui = {
     rarity: document.querySelector('#rarity-select'),
     lvl: document.querySelector('#lvl-input'),
     profs: document.querySelector('#prof-input'),
-    extraBonus: document.querySelector('#extra-bonus-input'),
     rewardBonus: document.querySelector('#reward-bonus-input'),
     foldedArmor: document.querySelector('#folded-armor-input'),
     nativeRes: document.querySelector('#native-res-select'),
-    extraStat: document.querySelector('#extra-stat-input'),
-    pr: document.querySelector('#pr-input'),
     stats: document.querySelector('.stat-inputs'),
     copySlot: document.querySelector('#copy-slot'),
     preview: document.querySelector('.item-preview'),
@@ -99,7 +98,7 @@ const statFields = () => ui.stats.querySelectorAll('input, select');
 
 /**
  * Stan przedmiotu - surowe wartości formularza. Tak jest zapisywany w bibliotece i w linku.
- * { cl, rarity, lvl, profs, extraBonus, reward, folded, nativeRes, stats: { stat: liczba|tekst }, name, icon, extraStat, pr }
+ * { cl, rarity, lvl, profs, reward, folded, nativeRes, stats: { stat: liczba|tekst }, name, icon }
  * folded - zbroja składana, nativeRes - ręczny typ natywnej odporności magicznej ('' = wg poziomu)
  */
 function formState() {
@@ -117,15 +116,12 @@ function formState() {
         rarity: Number(ui.rarity.value),
         lvl: Number(ui.lvl.value),
         profs: ui.profs.value,
-        extraBonus: Number(ui.extraBonus.value),
         reward: ui.rewardBonus.checked,
         folded: ui.foldedArmor.checked,
         nativeRes: ui.nativeRes.value,
         stats,
         name: ui.name.value,
         icon: ui.icon.value,
-        extraStat: ui.extraStat.value,
-        pr: Number(ui.pr.value),
     };
 }
 
@@ -138,32 +134,20 @@ function buildItem(state) {
     const name = escapeHtml(state.name);
     const icon = escapeHtml(state.icon);
     const profs = escapeHtml(state.profs);
-    const extraStat = escapeHtml(state.extraStat);
     // Bonus za nagrodę (przedmiot z craftu, tytana, questa lub licytacji) - jeden bonus więcej do rozdania.
     // Zbroja składana - bonusy za utworzenie zastępują ten +1 (opcja działa tylko dla zbroi)
     const folded = state.folded && state.cl == ItemClass.ARMOR;
     const creationBonus = folded ? foldedArmorExtraBonuses(state.lvl) : state.reward ? 1 : 0;
-    const extraBonus = Number(state.extraBonus) + creationBonus;
 
-    const item = new Item(state.cl, state.lvl, profs, state.rarity, { ...state.stats }, extraBonus);
+    const item = new Item(state.cl, state.lvl, profs, state.rarity, { ...state.stats }, creationBonus);
     item.setNativeResOverride(state.nativeRes ?? '');
-
-    const extraStats = {};
-    if (extraStat.length) {
-        for (const entry of extraStat.split(';')) {
-            const [key, value] = entry.split('=');
-            extraStats[key] = value ?? '_true';
-        }
-    }
 
     const info = {
         name,
         icon,
-        extraStat,
         cl: state.cl,
         rarity: state.rarity,
-        pr: state.pr == 0 ? item.getValue(extraStats) : state.pr,
-        rawPr: state.pr,
+        pr: item.getValue(),
     };
     return [info, item];
 }
@@ -182,12 +166,12 @@ function stateToHash(state) {
         0, // dawniej tier (klasa pochodzenia) - zostawione dla zgodności starych linków
         state.lvl,
         state.profs,
-        state.extraBonus,
+        0, // dawniej dodatkowe bonusy
         statsText,
         state.name,
         state.icon,
-        state.extraStat,
-        state.pr,
+        '', // dawniej dodatkowe statystyki
+        0, // dawniej ręczna wartość
         state.reward ? 1 : 0,
         state.folded ? 1 : 0,
         state.nativeRes ?? '',
@@ -225,15 +209,12 @@ function hashToState(hash) {
         rarity: Number(parts[1]),
         lvl: Number(parts[3]),
         profs: parts[4],
-        extraBonus: Number(parts[5]),
         reward: parts[11] === '1',
         folded: parts[12] === '1',
         nativeRes: NATIVE_RES_TYPES.includes(parts[13]) ? parts[13] : '',
         stats,
         name: parts[7] ?? ui.name.value,
         icon: parts[8] ?? ui.icon.value,
-        extraStat: parts[9] ?? ui.extraStat.value,
-        pr: Number(parts[10] ?? ui.pr.value),
     };
 }
 
@@ -243,14 +224,11 @@ function applyState(state) {
     ui.rarity.value = state.rarity;
     ui.lvl.value = state.lvl;
     ui.profs.value = state.profs;
-    ui.extraBonus.value = state.extraBonus;
     ui.rewardBonus.checked = state.reward;
     ui.foldedArmor.checked = state.folded ?? false;
     ui.nativeRes.value = NATIVE_RES_TYPES.includes(state.nativeRes) ? state.nativeRes : '';
     ui.name.value = state.name;
     ui.icon.value = state.icon;
-    ui.extraStat.value = state.extraStat;
-    ui.pr.value = state.pr;
 
     for (const field of statFields()) {
         field.value = field instanceof HTMLInputElement ? '0' : '';
@@ -554,7 +532,9 @@ function applyStatNames() {
 function buildStatInputs() {
     let html = '';
     for (const group of STAT_GROUPS) {
-        html += `<div class="stat-group-title">${group.title}</div>`;
+        // Przycisk "Resetuj" w linii z nagłówkiem pierwszej grupy
+        const reset = group === STAT_GROUPS[0] ? '<button id="reset-button">Resetuj</button>' : '';
+        html += `<div class="stat-group-title"><span>${group.title}</span>${reset}</div>`;
         for (const [stat, label, min, max] of group.stats) {
             const range = min === undefined ? '' : ` min="${min}" max="${max}" title="Zakres: ${min} do ${max}"`;
             html += `
@@ -632,8 +612,7 @@ function init() {
     if (editingId && Library.item(editingId)) document.querySelector('#save-folder').value = Library.item(editingId).folderId;
 
     const inputs = [
-        ui.name, ui.icon, ui.cl, ui.rarity, ui.lvl, ui.profs, ui.extraBonus, ui.rewardBonus, ui.foldedArmor, ui.nativeRes,
-        ui.extraStat, ui.pr,
+        ui.name, ui.icon, ui.cl, ui.rarity, ui.lvl, ui.profs, ui.rewardBonus, ui.foldedArmor, ui.nativeRes,
     ];
     for (const input of [...inputs, ...statFields()]) {
         input.addEventListener('change', update);

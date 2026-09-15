@@ -45,7 +45,7 @@ const unescapeHtml = (text) => text.replace(/&(?:amp|#38|lt|#60|gt|#62|apos|#39|
 
 /**
  * Buduje obiekt przedmiotu w formacie, jaki gra przesyła do klienta.
- * @param {Object} info  dane z formularza (name, icon, cl, rarity, pr, extraStat)
+ * @param {Object} info  dane z formularza (name, icon, cl, rarity, pr)
  * @param {Item}   item
  */
 function buildGameItem(info, item) {
@@ -76,7 +76,7 @@ function buildGameItem(info, item) {
         pr: info.pr,
         prc: 'zl',
         st: 0,
-        stat: stats.join(';') + (info.extraStat.length ? `;${info.extraStat}` : ''),
+        stat: stats.join(';'),
     };
 }
 
