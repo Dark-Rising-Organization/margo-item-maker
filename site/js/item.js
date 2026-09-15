@@ -57,8 +57,10 @@ class Item {
         return Classes.power(this.cl);
     }
 
+    // Ręczna zmiana typu natywnej odporności magicznej (resfire / resfrost / reslight) - wartość zostaje ta sama.
+    // Odporność na truciznę (act) jest stała i się nie zmienia.
     setNativeResOverride(stat) {
-        this.nativeResOverride = stat;
+        this.nativeResOverride = NATIVE_RES_TYPES.includes(stat) ? stat : '';
     }
 
     getNativeRes() {
@@ -93,6 +95,12 @@ class Item {
         }
 
         if (this.cl == ItemClass.ARMOR) {
+            // Zbroja dla wszystkich profesji ma ujemny pancerz: -max(1, 0.25 * level_power), obcięty do całości
+            // (peleryna poz. 35: 133.65 - 28 = 106, przy zaokrąglaniu wyszłoby 105)
+            if (profs === '' || profs === 'wpbmth') {
+                set('ac', Number(result.ac ?? 0) - Math.floor(Math.max(1, 0.25 * levelPower(lvl))));
+            }
+
             if (this.lvl > 20) set('manabon', Prof.armorMana(profs, lvl));
 
             const hpbonFactor = Prof.hpbonFactor(profs);
@@ -110,7 +118,7 @@ class Item {
         }
 
         // --- Bronie ---
-        const isAmmo = this.cl == ItemClass.ARROW || this.cl == ItemClass.QUIVER;
+        const isAmmo = this.cl == ItemClass.QUIVER;
         const isMelee = [ItemClass.ONEHANDED, ItemClass.ONEANDAHALFHANDED, ItemClass.TWOHANDED].includes(this.cl);
 
         if (isAmmo && profs.includes('h')) {
@@ -125,7 +133,7 @@ class Item {
             // damage = 8 * weapon_factor * (rarity_power + level_power), rozrzut ±10%
             const damage = 8 * physicalFactor * damageBase;
             if (isAmmo) {
-                // Kołczany/strzały - obrażenia fizyczne tylko u łowcy
+                // Kołczany - obrażenia fizyczne tylko u łowcy
                 if (this.profs.includes('h')) set('pdmg', roundStat(damage));
             } else {
                 result.dmg = `${roundStat(0.9 * damage)},${roundStat(1.1 * damage)}`;
@@ -171,16 +179,23 @@ class Item {
         const amt = typeof this.stats[stat] === 'number' ? this.stats[stat] : 0;
         const next = this.computeStat(stat, amt + 1);
         const current = amt == 0 ? null : this.computeStat(stat, amt);
-        // Statystyka niezależna od liczby bonusów (np. niszczenie absorpcji) - cała wartość
-        const gain = (a, b) => Math.floor((a == b ? a : a - b) + 1e-9);
 
         if (typeof next === 'string') {
             // Losowe niszczenie energii/many: "szansa,wartość" - szansa rośnie, wartość zależy od poziomu
             const [nextChance, nextValue] = next.split(',').map(Number);
             const currentChance = current === null ? 0 : Number(String(current).split(',')[0]);
-            return `${stat},${gain(nextChance, currentChance)},${nextValue}`;
+            return `${stat},${nextChance - currentChance},${nextValue}`;
         }
-        return `${stat},${gain(Number(next), current === null ? 0 : Number(current))}`;
+
+        // Statystyka niezależna od liczby bonusów (np. niszczenie absorpcji) - cała wartość
+        if (current !== null && Number(next) == Number(current)) {
+            return `${stat},${Math.floor(Number(next) + 1e-9)}`;
+        }
+        // Gra zaokrągla całą statystykę (z wartością natywną) przed i po wzmocnieniu i zapisuje różnicę:
+        // leczenie 75.5 -> 143 daje +67, pancerz zbroi 349.3 -> 389.7 daje +41
+        const native = Number(this.exportNativeStats()[stat] ?? 0);
+        const before = roundStat(native + (current === null ? 0 : Number(current)));
+        return `${stat},${roundStat(native + Number(next)) - before}`;
     }
 
     // Wszystkie statystyki przedmiotu (natywne + z bonusów), jako stringi
@@ -243,11 +258,6 @@ class Item {
         const amount = stats.ammo ? parseInt(stats.ammo) : stats.amount ? parseInt(stats.amount) : 1;
         const lvl = this.lvl;
 
-        if (this.cl == ItemClass.ARROW) {
-            return roundStat(
-                7e-4 * multiplier * (3 + rarity) * Math.pow(1.05, statCount) * amount * (lvl * lvl + (10 / 3) * lvl) + 5,
-            );
-        }
         return roundStat(0.7 * multiplier * (3 + rarity) * Math.pow(1.05, statCount) * amount * (lvl * lvl + 2.5 * lvl));
     }
 }

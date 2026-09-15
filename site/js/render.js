@@ -28,7 +28,6 @@ const PLACEHOLDER_ICONS = {
     [ItemClass.RING]: 'pie/placeholder.gif',
     [ItemClass.NECKLACE]: 'nas/placeholder.gif',
     [ItemClass.SHIELD]: 'tar/placeholder.gif',
-    [ItemClass.ARROW]: 'arr/placeholder.gif',
     [ItemClass.QUIVER]: 'arr/placeholder.gif',
 };
 

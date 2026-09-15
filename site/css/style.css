@@ -46,7 +46,6 @@ a { color: #add8e6; }
 .stat-group-title { grid-column: 1 / -1; margin: 12px 5px 2px; padding-bottom: 3px; border-bottom: 1px solid #555; font-weight: bold; color: #d9c38a; }
 .stat-input input:invalid { border-color: #e04040; background: #401010b3; }
 .item-basic-input input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
-
 /* --- Zakładki --- */
 .topbar { box-sizing: border-box; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 16px; background: #000000a0; border-bottom: 1px solid #333; }
 .brand { font-weight: bold; color: #d9c38a; margin-right: 16px; }
@@ -73,7 +72,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .card-subtitle { font-size: 11px; color: #aaa; }
 .card-current .card-title { color: #d9c38a; }
 .card-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 6px; }
-.card-actions select { max-width: 120px; }
+.card-actions-row { flex-basis: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.card-actions select { max-width: 180px; }
 
 /* --- Biblioteka --- */
 .library { height: calc(100% - 26px - 40px); display: flex; }

@@ -44,12 +44,17 @@ function renderLibrary() {
             title: saved.state.name,
             subtitle: `${Library.folderName(saved.folderId)} · zapisano ${new Date(saved.savedAt).toLocaleString('pl-PL')}`,
             actions: `
-                <button data-item-action="edit" data-id="${saved.id}">Edytuj</button>
-                <button data-item-action="compare" data-id="${saved.id}"${compareIds.includes(saved.id) || saved.id === editingId ? ' disabled' : ''}>
-                    ${compareIds.includes(saved.id) ? 'W porównaniu' : 'Porównaj'}
-                </button>
-                <select data-item-action="move" data-id="${saved.id}" title="Przenieś do folderu">${folderOptions(saved.folderId)}</select>
-                <button data-item-action="delete" data-id="${saved.id}">Usuń</button>`,
+                <div class="card-actions-row">
+                    <button data-item-action="edit" data-id="${saved.id}">Edytuj</button>
+                    <button data-item-action="compare" data-id="${saved.id}"${compareIds.includes(saved.id) || saved.id === editingId ? ' disabled' : ''}>
+                        ${compareIds.includes(saved.id) ? 'W porównaniu' : 'Porównaj'}
+                    </button>
+                    <button data-item-action="delete" data-id="${saved.id}">Usuń</button>
+                </div>
+                <div class="card-actions-row">
+                    <button data-item-action="copy-stats" data-id="${saved.id}" title="Skopiuj listę statystyk">Kopiuj statystyki</button>
+                    <select data-item-action="move" data-id="${saved.id}" title="Przenieś do folderu">${folderOptions(saved.folderId)}</select>
+                </div>`,
         }),
     );
     document.querySelector('#library-cards').innerHTML = cards.length
@@ -104,6 +109,12 @@ function initLibraryView() {
                 Library.addCompare(saved.id);
                 showView('creator');
                 update();
+                break;
+            case 'copy-stats':
+                copyToClipboard(buildStatsList(saved.state)).then(() => {
+                    button.textContent = 'Skopiowano';
+                    setTimeout(() => (button.textContent = 'Kopiuj statystyki'), 1500);
+                });
                 break;
             case 'delete':
                 if (confirm(`Usunąć zapisany przedmiot „${saved.state.name}”?`)) {

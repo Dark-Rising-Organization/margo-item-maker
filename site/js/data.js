@@ -156,7 +156,7 @@ const ItemClass = {
     KEY: 18,
     QUEST: 19,
     RENEWABLE: 20,
-    ARROW: 21,
+    ARROW: 21, // strzały - typ wycofany z gry, niedostępny w formularzu (stare linki wczytują się jako kołczan)
     CHARM: 22,
     BOOK: 23,
     BAG: 24,
@@ -196,12 +196,15 @@ const CLASS_BONUS_COUNT = (() => {
         [C.HELMET]: small,
         [C.GLOVES]: small,
         [C.BOOTS]: small,
-        [C.ARROW]: byRarity(1, 3, 6, 8, 12, 12),
         [C.RING]: byRarity(5, 9, 13, 13, 17, 17),
         [C.NECKLACE]: byRarity(6, 10, 14, 14, 18, 18),
         [C.BLESSING]: byRarity(2, 3, 4, 4, 4, 4),
     };
 })();
+
+// Zbroja składana (tworzona) - dodatkowe bonusy za utworzenie, zamiast zwykłego +1 za craft:
+// poziomy 40-271: +3, poziom 300: +5
+const foldedArmorExtraBonuses = (lvl) => (lvl >= 300 ? 5 : 3);
 
 // Typy z natywnym pancerzem / absorpcją / odpornościami
 const CLASSES_WITH_NATIVE_DEFENSE = [ItemClass.ARMOR, ItemClass.SHIELD, ItemClass.HELMET, ItemClass.GLOVES, ItemClass.BOOTS];
@@ -209,7 +212,7 @@ const CLASSES_WITH_NATIVE_DEFENSE = [ItemClass.ARMOR, ItemClass.SHIELD, ItemClas
 // Bronie (m.in. mocniejsze niszczenie pancerza)
 const WEAPON_CLASSES = [
     ItemClass.ONEHANDED, ItemClass.TWOHANDED, ItemClass.ONEANDAHALFHANDED, ItemClass.RANGED,
-    ItemClass.SECONDARY, ItemClass.WAND, ItemClass.ORB, ItemClass.ARROW, ItemClass.QUIVER,
+    ItemClass.SECONDARY, ItemClass.WAND, ItemClass.ORB, ItemClass.QUIVER,
 ];
 
 const CLASS_POWER = {
@@ -230,7 +233,6 @@ const CLASS_VALUE_MULTIPLIER = {
     [ItemClass.WAND]: 1.8,
     [ItemClass.ORB]: 1.8,
     [ItemClass.SHIELD]: 1.4,
-    [ItemClass.ARROW]: 0.75,
 };
 
 // Niszczenie absorpcji: val = współczynnik * (rarity_power + level_power)
@@ -239,8 +241,7 @@ const CLASS_ABDEST_FACTOR = {
     [ItemClass.TWOHANDED]: 0.36,
     [ItemClass.SECONDARY]: 0.24,
     [ItemClass.ORB]: 0.21,
-    [ItemClass.ARROW]: 0.12,
-    [ItemClass.QUIVER]: 0.12, // w tabeli brak kołczanów - liczone jak strzały
+    [ItemClass.QUIVER]: 0.12, // w tabeli dokumentacji wiersz "strzały"
 };
 
 // =====================================================================
@@ -309,7 +310,7 @@ const WEAPON_DAMAGE = (() => {
         [C.WAND]: {
             fire: [0, K],
             frost: [0, K * 0.85],
-            light: [0, 0.3652],
+            light: [0, 0.3653], // dokumentacja: 0.3652 - za mało dla przedmiotu z gry (458-687 na poz. 48 heroik)
         },
         [C.ORB]: {
             fire: [0, K * 0.475],
@@ -317,7 +318,6 @@ const WEAPON_DAMAGE = (() => {
             light: [0, 0.1528],
         },
         [C.QUIVER]: quiver,
-        [C.ARROW]: quiver,
     };
 })();
 
@@ -333,7 +333,6 @@ const WEAPON_SLOW_FACTOR = (() => {
         [C.WAND]: { frost: 0.01 },
         [C.ORB]: { frost: 0.0073529 },
         [C.QUIVER]: { frost: 0.0073529, poison: 0.0044625 },
-        [C.ARROW]: { frost: 0.0073529, poison: 0.0044625 },
     };
 })();
 

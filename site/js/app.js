@@ -15,7 +15,6 @@ const CLASS_OPTIONS = [
     [ItemClass.RING, 'Pierścienie'],
     [ItemClass.NECKLACE, 'Naszyjniki'],
     [ItemClass.SHIELD, 'Tarcze'],
-    [ItemClass.ARROW, 'Strzały'],
     [ItemClass.QUIVER, 'Kołczany'],
 ];
 
@@ -30,6 +29,15 @@ const RARITY_OPTIONS = [
 const DEFAULT_HASH = '#1|0|0|100||0||Testowy przedmiot|||0';
 
 const CHANGELOG = `
+v1.6.0
+- wzory sprawdzone na przedmiotach z gry: pancerz z bonusu (tylko moc poziomu), mana z bonusu (+5), błyskawice różdżek i orbów
+- wartość wzmocnienia za +5 liczona jak w grze (różnica zaokrąglonej statystyki razem z wartością natywną)
+- ujemny pancerz w zbrojach dla wszystkich profesji
+- opcja "Zbroja składana" (+3 bonusy za utworzenie, na poziomie 300: +5)
+- ręczna zmiana typu natywnej odporności magicznej (ogień / zimno / błyskawice)
+- usunięto strzały (typ wycofany z gry; stare linki wczytują się jako kołczan)
+- przycisk "Skopiuj listę statystyk"
+
 v1.5.0
 - bonus za ulepszenie +5 (Wzmocniono) z pulą zależną od typu przedmiotu, gwiazdki ulepszenia w tooltipie
 - bonus za craft/tytana/quest/licytację (+1 bonus do rozdania)
@@ -78,6 +86,8 @@ const ui = {
     profs: document.querySelector('#prof-input'),
     extraBonus: document.querySelector('#extra-bonus-input'),
     rewardBonus: document.querySelector('#reward-bonus-input'),
+    foldedArmor: document.querySelector('#folded-armor-input'),
+    nativeRes: document.querySelector('#native-res-select'),
     extraStat: document.querySelector('#extra-stat-input'),
     pr: document.querySelector('#pr-input'),
     stats: document.querySelector('.stat-inputs'),
@@ -89,7 +99,8 @@ const statFields = () => ui.stats.querySelectorAll('input, select');
 
 /**
  * Stan przedmiotu - surowe wartości formularza. Tak jest zapisywany w bibliotece i w linku.
- * { cl, rarity, lvl, profs, extraBonus, reward, stats: { stat: liczba|tekst }, name, icon, extraStat, pr }
+ * { cl, rarity, lvl, profs, extraBonus, reward, folded, nativeRes, stats: { stat: liczba|tekst }, name, icon, extraStat, pr }
+ * folded - zbroja składana, nativeRes - ręczny typ natywnej odporności magicznej ('' = wg poziomu)
  */
 function formState() {
     const stats = {};
@@ -108,6 +119,8 @@ function formState() {
         profs: ui.profs.value,
         extraBonus: Number(ui.extraBonus.value),
         reward: ui.rewardBonus.checked,
+        folded: ui.foldedArmor.checked,
+        nativeRes: ui.nativeRes.value,
         stats,
         name: ui.name.value,
         icon: ui.icon.value,
@@ -116,16 +129,24 @@ function formState() {
     };
 }
 
+// Strzały zostały wycofane z gry - zapisane dawniej przedmioty tego typu traktujemy jak kołczany
+const stateClass = (state) => (Number(state.cl) == ItemClass.ARROW ? ItemClass.QUIVER : Number(state.cl));
+
 // Stan -> [info, Item]
 function buildItem(state) {
+    state = { ...state, cl: stateClass(state) };
     const name = escapeHtml(state.name);
     const icon = escapeHtml(state.icon);
     const profs = escapeHtml(state.profs);
     const extraStat = escapeHtml(state.extraStat);
-    // Bonus za nagrodę (przedmiot z craftu, tytana, questa lub licytacji) - jeden bonus więcej do rozdania
-    const extraBonus = Number(state.extraBonus) + (state.reward ? 1 : 0);
+    // Bonus za nagrodę (przedmiot z craftu, tytana, questa lub licytacji) - jeden bonus więcej do rozdania.
+    // Zbroja składana - bonusy za utworzenie zastępują ten +1 (opcja działa tylko dla zbroi)
+    const folded = state.folded && state.cl == ItemClass.ARMOR;
+    const creationBonus = folded ? foldedArmorExtraBonuses(state.lvl) : state.reward ? 1 : 0;
+    const extraBonus = Number(state.extraBonus) + creationBonus;
 
     const item = new Item(state.cl, state.lvl, profs, state.rarity, { ...state.stats }, extraBonus);
+    item.setNativeResOverride(state.nativeRes ?? '');
 
     const extraStats = {};
     if (extraStat.length) {
@@ -168,6 +189,8 @@ function stateToHash(state) {
         state.extraStat,
         state.pr,
         state.reward ? 1 : 0,
+        state.folded ? 1 : 0,
+        state.nativeRes ?? '',
     ].join('|');
 }
 
@@ -198,12 +221,14 @@ function hashToState(hash) {
     }
 
     return {
-        cl: Number(parts[0]),
+        cl: stateClass({ cl: parts[0] }),
         rarity: Number(parts[1]),
         lvl: Number(parts[3]),
         profs: parts[4],
         extraBonus: Number(parts[5]),
         reward: parts[11] === '1',
+        folded: parts[12] === '1',
+        nativeRes: NATIVE_RES_TYPES.includes(parts[13]) ? parts[13] : '',
         stats,
         name: parts[7] ?? ui.name.value,
         icon: parts[8] ?? ui.icon.value,
@@ -214,12 +239,14 @@ function hashToState(hash) {
 
 // Wpisuje stan do formularza
 function applyState(state) {
-    ui.cl.value = state.cl;
+    ui.cl.value = stateClass(state);
     ui.rarity.value = state.rarity;
     ui.lvl.value = state.lvl;
     ui.profs.value = state.profs;
     ui.extraBonus.value = state.extraBonus;
     ui.rewardBonus.checked = state.reward;
+    ui.foldedArmor.checked = state.folded ?? false;
+    ui.nativeRes.value = NATIVE_RES_TYPES.includes(state.nativeRes) ? state.nativeRes : '';
     ui.name.value = state.name;
     ui.icon.value = state.icon;
     ui.extraStat.value = state.extraStat;
@@ -372,7 +399,23 @@ function refreshActiveStats() {
     }
 }
 
+// Opcje zależne od typu przedmiotu: zbroja składana (tylko zbroje), typ odporności (elementy pancerza)
+const NATIVE_RES_LABELS = { resfire: 'ogień', resfrost: 'zimno', reslight: 'błyskawice' };
+
+function refreshClassOptions() {
+    const cl = Number(ui.cl.value);
+    document.querySelector('#folded-armor-row').hidden = cl != ItemClass.ARMOR;
+    document.querySelector('#native-res-row').hidden = !Classes.hasNativeDefense(cl);
+
+    // Opcja domyślna pokazuje, jaki typ wynika z poziomu
+    const levelType = NATIVE_RES_LABELS[nativeResType(Number(ui.lvl.value) || 0)] ?? '-';
+    ui.nativeRes.options[0].textContent = `Wg poziomu (${levelType})`;
+    // Przy zbroi składanej bonus za craft jest już wliczony
+    ui.rewardBonus.disabled = !document.querySelector('#folded-armor-row').hidden && ui.foldedArmor.checked;
+}
+
 function update() {
+    refreshClassOptions();
     refreshEnhancementOptions();
     refreshActiveStats();
     const state = formState();
@@ -421,18 +464,51 @@ function buildInGameCode() {
         }();`;
 }
 
+const STATS_LIST_PROF_ORDER = 'bwpmth';
+
+// Krótkie nazwy typów przedmiotów na początku listy statystyk (np. "helmet300mt: ...")
+const CLASS_SHORT_NAMES = {
+    [ItemClass.ONEHANDED]: '1h',
+    [ItemClass.TWOHANDED]: '2h',
+    [ItemClass.ONEANDAHALFHANDED]: '1.5h',
+    [ItemClass.RANGED]: 'bow',
+    [ItemClass.SECONDARY]: 'secondary',
+    [ItemClass.WAND]: 'wand',
+    [ItemClass.ORB]: 'orb',
+    [ItemClass.ARMOR]: 'armor',
+    [ItemClass.HELMET]: 'helmet',
+    [ItemClass.BOOTS]: 'boots',
+    [ItemClass.GLOVES]: 'gloves',
+    [ItemClass.RING]: 'ring',
+    [ItemClass.NECKLACE]: 'necklace',
+    [ItemClass.SHIELD]: 'shield',
+    [ItemClass.QUIVER]: 'quiver',
+};
+
 /**
- * Lista rozdanych bonusów w nazwach silnikowych, np. "cleanse 5crit, 1da, 3hp".
+ * Lista rozdanych bonusów w nazwach silnikowych, np. "ring40allprof: cleanse, 5crit, 1da, 3hp".
+ * Na początku typ, poziom i profesje (brak wymagań lub wszystkie profesje = "allprof").
  * Na początku bonus legendarny (jeśli jest). Pomijane są pola, które nie zajmują bonusów
  * (stopień ulepszenia, typ obrażeń broni) oraz wzmocnienie za +5.
+ * Na końcu ręczna zmiana typu natywnej odporności magicznej, np. "resfire->reslight".
  */
-function buildStatsList() {
-    const state = formState();
+function buildStatsList(state = formState()) {
+    state = { ...state, cl: stateClass(state) };
     const bonuses = Object.entries(state.stats)
         .filter(([stat, amt]) => typeof amt === 'number' && statCost(stat) != 0)
         .map(([stat, amt]) => `${amt}${ENGINE_NAME_OVERRIDES[stat] ?? stat}`)
         .join(', ');
-    return [state.stats.legbon, bonuses].filter(Boolean).join(', ');
+
+    let resChange = '';
+    const levelRes = nativeResType(state.lvl);
+    if (Classes.hasNativeDefense(state.cl) && NATIVE_RES_TYPES.includes(state.nativeRes) && state.nativeRes !== levelRes) {
+        resChange = `${levelRes}->${state.nativeRes}`;
+    }
+    const profs = toCanonicalProfs(state.profs);
+    // W liście profesje w kolejności bwpmth (inna niż kanoniczna kolejność kluczy tabel)
+    const listProfs = [...profs].sort((a, b) => STATS_LIST_PROF_ORDER.indexOf(a) - STATS_LIST_PROF_ORDER.indexOf(b)).join('');
+    const header = `${CLASS_SHORT_NAMES[state.cl] ?? state.cl}${state.lvl}${profs === '' || profs === 'wpbmth' ? 'allprof' : listProfs}`;
+    return `${header}: ${[state.stats.legbon, bonuses, resChange].filter(Boolean).join(', ')}`.trimEnd();
 }
 
 async function copyToClipboard(text) {
@@ -536,6 +612,7 @@ function refreshEnhancementOptions() {
 function init() {
     fillSelect(ui.cl, CLASS_OPTIONS);
     fillSelect(ui.rarity, RARITY_OPTIONS);
+    fillSelect(ui.nativeRes, [['', 'Wg poziomu'], ...NATIVE_RES_TYPES.map((stat) => [stat, NATIVE_RES_LABELS[stat]])]);
     try {
         engineNamesToggle.checked = localStorage.getItem(ENGINE_NAMES_KEY) === '1';
     } catch {
@@ -554,7 +631,10 @@ function init() {
     loadFromHash(location.hash);
     if (editingId && Library.item(editingId)) document.querySelector('#save-folder').value = Library.item(editingId).folderId;
 
-    const inputs = [ui.name, ui.icon, ui.cl, ui.rarity, ui.lvl, ui.profs, ui.extraBonus, ui.rewardBonus, ui.extraStat, ui.pr];
+    const inputs = [
+        ui.name, ui.icon, ui.cl, ui.rarity, ui.lvl, ui.profs, ui.extraBonus, ui.rewardBonus, ui.foldedArmor, ui.nativeRes,
+        ui.extraStat, ui.pr,
+    ];
     for (const input of [...inputs, ...statFields()]) {
         input.addEventListener('change', update);
     }

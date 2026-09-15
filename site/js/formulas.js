@@ -23,9 +23,9 @@ const statCost = (stat) => STAT_COST[stat] ?? 1;
 // Statystyki "ujemne" - ulepszenie przedmiotu obniża ich poziom zamiast podnosić
 const statSign = (stat) => (stat === 'adest' ? -1 : 1);
 
-// Natywna odporność na elementach zbroi zależy od poziomu przedmiotu
-const nativeResType = (lvl) => ['resfire', 'resfrost', 'reslight'][lvl % 3];
-
+// Natywna odporność na elementach zbroi zależy od poziomu przedmiotu (można ją ręcznie zamienić na inny typ)
+const NATIVE_RES_TYPES = ['resfire', 'resfrost', 'reslight'];
+const nativeResType = (lvl) => NATIVE_RES_TYPES[lvl % 3];
 // Statystyki, których wartość nie jest zaokrąglana do liczby całkowitej
 const UNROUNDED_STATS = ['hpbon'];
 
@@ -258,7 +258,8 @@ const STAT_GROUPS = [
 /**
  * Bonus za ulepszenie przedmiotu na +5 (statystyka "bonus=nazwa,wartość", w grze "Wzmocniono: ...").
  * Pula zależy od zestawu, do którego należy typ przedmiotu. Bonus nie zajmuje miejsca w puli bonusów.
- * Wartość = przyrost z kolejnego bonusu tej statystyki na poziomie pozornym, zaokrąglony w dół.
+ * Wartość = przyrost z kolejnego bonusu tej statystyki na poziomie pozornym, liczony jako różnica
+ * zaokrąglonych wartości całej statystyki (razem z natywną) po i przed wzmocnieniem.
  */
 const ENHANCEMENT_STAT = 'bonus';
 const ENHANCEMENT_MIN_UPGRADE = 5;
