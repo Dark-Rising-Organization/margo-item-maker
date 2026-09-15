@@ -61,6 +61,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .save-box { background: #ffffff0d; border: 1px solid #444; padding: 6px 8px; margin-bottom: 8px; }
 .save-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
 .save-row select { max-width: 260px; }
+.stats-list-input { flex: 1; min-width: 200px; }
+#stats-list-message { font-size: 12px; color: #d9c38a; justify-content: flex-start; }
+#stats-list-message.error { color: #e06060; }
 .save-buttons { display: flex; gap: 6px; }
 .unsaved { color: #f0b050; }
 

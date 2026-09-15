@@ -38,7 +38,7 @@ v1.6.0
 - usunięto strzały (typ wycofany z gry; stare linki wczytują się jako kołczan)
 - usunięto pola: dodatkowe bonusy, dodatkowe statystyki, ręczna wartość (wartość zawsze liczona)
 - slot i przyciski kopiowania pod zapisem, Resetuj przy nagłówku statystyk
-- przycisk "Skopiuj listę statystyk"
+- przycisk "Skopiuj listę statystyk" i wczytywanie przedmiotu z wklejonej listy (rzadkość zgadywana z liczby bonusów)
 
 v1.5.0
 - bonus za ulepszenie +5 (Wzmocniono) z pulą zależną od typu przedmiotu, gwiazdki ulepszenia w tooltipie
@@ -464,11 +464,10 @@ const CLASS_SHORT_NAMES = {
 };
 
 /**
- * Lista rozdanych bonusów w nazwach silnikowych, np. "ring40allprof: cleanse, 5crit, 1da, 3hp".
- * Na początku typ, poziom i profesje (brak wymagań lub wszystkie profesje = "allprof").
- * Na początku bonus legendarny (jeśli jest). Pomijane są pola, które nie zajmują bonusów
- * (stopień ulepszenia, typ obrażeń broni) oraz wzmocnienie za +5.
- * Na końcu ręczna zmiana typu natywnej odporności magicznej, np. "resfire->reslight".
+ * Lista rozdanych bonusów w nazwach silnikowych, np. "ring40allprof: cleanse, 5crit, 1da, 3hp, +5, bonus:heal".
+ * Kolejno: nagłówek <typ><poziom><profesje> (brak wymagań lub wszystkie profesje = "allprof"), bonus legendarny,
+ * bonusy "<liczba><statystyka>", typ obrażeń broni ("fire"), stopień ulepszenia ("+5"), wzmocnienie za +5
+ * ("bonus:heal") i ręczna zmiana typu natywnej odporności magicznej ("resfire->reslight").
  */
 function buildStatsList(state = formState()) {
     state = { ...state, cl: stateClass(state) };
@@ -476,6 +475,10 @@ function buildStatsList(state = formState()) {
         .filter(([stat, amt]) => typeof amt === 'number' && statCost(stat) != 0)
         .map(([stat, amt]) => `${amt}${ENGINE_NAME_OVERRIDES[stat] ?? stat}`)
         .join(', ');
+
+    const damageTypes = DAMAGE_TYPES.filter((type) => state.stats[type]);
+    const upgrade = state.stats.upgrade ? `+${state.stats.upgrade}` : '';
+    const enhancement = state.stats[ENHANCEMENT_STAT] ? `${ENHANCEMENT_STAT}:${state.stats[ENHANCEMENT_STAT]}` : '';
 
     let resChange = '';
     const levelRes = nativeResType(state.lvl);
@@ -486,7 +489,90 @@ function buildStatsList(state = formState()) {
     // W liście profesje w kolejności bwpmth (inna niż kanoniczna kolejność kluczy tabel)
     const listProfs = [...profs].sort((a, b) => STATS_LIST_PROF_ORDER.indexOf(a) - STATS_LIST_PROF_ORDER.indexOf(b)).join('');
     const header = `${CLASS_SHORT_NAMES[state.cl] ?? state.cl}${state.lvl}${profs === '' || profs === 'wpbmth' ? 'allprof' : listProfs}`;
-    return `${header}: ${[state.stats.legbon, bonuses, resChange].filter(Boolean).join(', ')}`.trimEnd();
+    return `${header}: ${[state.stats.legbon, bonuses, ...damageTypes, upgrade, enhancement, resChange].filter(Boolean).join(', ')}`.trimEnd();
+}
+
+/**
+ * Odwrotność buildStatsList: "helmet300mt: puncture, 1da, -2reslight, resfire->reslight" -> stan przedmiotu.
+ * Lista nie zawiera rzadkości ani bonusu za craft / zbroję składaną - zgadujemy je z liczby rozdanych bonusów
+ * (pierwsze dopasowanie, przy którym nie zostaje nic do rozdania). Rozumie też zapis "5upgrade" / "1fire".
+ * Zwraca { state, warnings } albo rzuca Error z opisem, co jest nie tak.
+ */
+function parseStatsList(text, base = formState()) {
+    const colon = text.indexOf(':');
+    if (colon == -1) throw new Error('Brak nagłówka zakończonego dwukropkiem, np. "ring40allprof:".');
+    const header = text.slice(0, colon).trim().toLowerCase();
+
+    // Typ: najdłuższa pasująca nazwa (żeby "1.5h" nie zostało wzięte za "1" + ...)
+    const classEntry = Object.entries(CLASS_SHORT_NAMES)
+        .sort((a, b) => b[1].length - a[1].length)
+        .find(([, name]) => header.startsWith(name) && /^\d/.test(header.slice(name.length)));
+    if (!classEntry) throw new Error(`Nieznany typ przedmiotu w nagłówku "${header}".`);
+    const match = /^(\d+)(allprof|[bwpmth]*)$/.exec(header.slice(classEntry[1].length));
+    if (!match) throw new Error(`Nagłówek "${header}" powinien mieć postać <typ><poziom><profesje>, np. helmet300mt.`);
+
+    const cl = Number(classEntry[0]);
+    const state = {
+        ...base,
+        cl,
+        lvl: Number(match[1]),
+        profs: match[2] === 'allprof' ? '' : toCanonicalProfs(match[2]),
+        reward: false,
+        folded: false,
+        nativeRes: '',
+        stats: {},
+    };
+
+    const engineNames = Object.fromEntries(Object.entries(ENGINE_NAME_OVERRIDES).map(([stat, name]) => [name, stat]));
+    const warnings = [];
+    for (const raw of text.slice(colon + 1).split(',')) {
+        const token = raw.trim();
+        if (token === '') continue;
+
+        const resChange = /^(res\w+)\s*->\s*(res\w+)$/.exec(token);
+        const bonus = /^(-?\d+)\s*([a-z]+)$/i.exec(token);
+        const upgrade = /^\+(\d+)$/.exec(token);
+        const enhancement = /^bonus\s*:\s*(\w+)$/.exec(token); // ENHANCEMENT_STAT
+        if (resChange && NATIVE_RES_TYPES.includes(resChange[2])) {
+            state.nativeRes = resChange[2];
+        } else if (DAMAGE_TYPES.includes(token)) {
+            state.stats[token] = 1;
+        } else if (upgrade) {
+            if (Number(upgrade[1]) > 0) state.stats.upgrade = Number(upgrade[1]);
+        } else if (enhancement) {
+            state.stats[ENHANCEMENT_STAT] = enhancement[1];
+        } else if (LEGENDARY_BONUSES[token]) {
+            state.stats.legbon = token;
+        } else if (bonus && FORM_STATS.includes(engineNames[bonus[2]] ?? bonus[2])) {
+            const stat = engineNames[bonus[2]] ?? bonus[2];
+            const amt = Number(bonus[1]);
+            if (amt != 0) state.stats[stat] = amt;
+        } else {
+            warnings.push(token);
+        }
+    }
+
+    // Rzadkość i bonus za utworzenie - dopasowanie do liczby rozdanych bonusów
+    const used = Object.entries(state.stats)
+        .filter(([, amt]) => typeof amt === 'number')
+        .reduce((sum, [stat, amt]) => sum + statCost(stat) * amt, 0);
+    const rarities = state.stats.legbon ? [Rarity.LEGENDARY] : [Rarity.COMMON, Rarity.UNIQUE, Rarity.HEROIC, Rarity.LEGENDARY];
+    const creations = [{ reward: false, folded: false, extra: 0 }, { reward: true, folded: false, extra: 1 }];
+    if (cl == ItemClass.ARMOR) creations.push({ reward: false, folded: true, extra: foldedArmorExtraBonuses(state.lvl) });
+
+    const candidate = (creation, rarity) => ({ ...creation, rarity, left: Classes.bonusCount(cl, rarity) + creation.extra - used });
+    // Ulepszone na końcu - w broni 7 bonusów to częściej heroik z craftu (6 + 1) niż przedmiot ulepszony
+    const candidates = [
+        ...creations.flatMap((creation) => rarities.map((rarity) => candidate(creation, rarity))),
+        ...(state.stats.legbon ? [] : creations.map((creation) => candidate(creation, Rarity.UPGRADED))),
+    ];
+    const best =
+        candidates.find((candidate) => candidate.left == 0) ??
+        candidates.filter((candidate) => candidate.left > 0).sort((a, b) => a.left - b.left)[0] ??
+        candidates[candidates.length - 1];
+    Object.assign(state, { rarity: best.rarity, reward: best.reward, folded: best.folded });
+
+    return { state, warnings };
 }
 
 async function copyToClipboard(text) {
@@ -656,6 +742,33 @@ function init() {
 
     document.querySelector('#copy-button').addEventListener('click', () => {
         copyToClipboard(buildInGameCode());
+    });
+
+    // Wczytanie przedmiotu z wklejonej listy statystyk
+    const listInput = document.querySelector('#stats-list-input');
+    const listMessage = document.querySelector('#stats-list-message');
+    const loadStatsList = () => {
+        if (listInput.value.trim() === '') return;
+        try {
+            const { state, warnings } = parseStatsList(listInput.value);
+            applyState(state);
+            update();
+            const rarity = RARITY_OPTIONS.find(([value]) => value == state.rarity)[1];
+            const extras = [state.reward && 'craft', state.folded && 'zbroja składana'].filter(Boolean).join(', ');
+            listMessage.textContent =
+                `Wczytano (rzadkość: ${rarity}${extras ? `, ${extras}` : ''}).` +
+                (warnings.length ? ` Pominięto nierozpoznane: ${warnings.join(', ')}.` : '');
+            listMessage.classList.toggle('error', warnings.length > 0);
+            listInput.value = '';
+        } catch (error) {
+            listMessage.textContent = error.message;
+            listMessage.classList.add('error');
+        }
+        listMessage.hidden = false;
+    };
+    document.querySelector('#stats-list-load').addEventListener('click', loadStatsList);
+    listInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') loadStatsList();
     });
 
     document.querySelector('#changelog').addEventListener('click', () => alert(CHANGELOG));
