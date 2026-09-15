@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <title>MargoItemMaker</title>
+    <!--
+        Pliki tooltipów gry (słownik, parser, CSS) są wczytywane z commons.margonem.pl, tak jak robi to gra.
+        Jeśli się nie wczytają albo parser nie działa, strona używa lokalnych kopii z vendor/.
+    -->
+    <link rel="stylesheet" href="https://commons.margonem.pl/css/tipsParser.min.css"
+          onerror="this.onerror = null; this.href = 'vendor/tipsParser.min.css';">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://commons.margonem.pl/js/dictionaries/dictionary_pl.js"></script>
+    <script src="vendor/jquery-3.6.3.min.js"></script>
+</head>
+<body>
+    <div class="topbar">
+        <span class="brand">MargoItemMaker</span>
+        <button class="tab active" data-view="creator">Kreator</button>
+        <button class="tab" data-view="library">Biblioteka <span id="library-count"></span></button>
+    </div>
+
+    <div class="container" id="creator-view">
+        <div class="item-preview"></div>
+        <div class="item-designer">
+            <div class="save-box">
+                <div class="save-row"><span id="editing-label"></span></div>
+                <div class="save-row">
+                    <label>Folder: <select id="save-folder"></select></label>
+                    <span class="save-buttons">
+                        <button id="save-changes" hidden>Zapisz zmiany</button>
+                        <button id="save-new">Zapisz jako nowy</button>
+                    </span>
+                </div>
+                <div class="save-row">
+                    <label>Porównaj z: <select id="compare-select"></select></label>
+                    <button id="compare-clear" hidden>Wyczyść porównanie</button>
+                </div>
+            </div>
+            <div class="item-basic-input">Nazwa: <input id="name-input" value="Testowy przedmiot"></div>
+            <div class="item-basic-input">Grafika: <input id="icon-input" placeholder="Domyślny placeholder"></div>
+            <div class="item-basic-input">Typ przedmiotu: <select id="class-select"></select></div>
+            <div class="item-basic-input">Rzadkość: <select id="rarity-select"></select></div>
+            <div class="item-basic-input">Poziom: <input value="100" id="lvl-input"></div>
+            <div class="item-basic-input">Wymagane profesje: <input placeholder="Literki profesji: wpbmth" id="prof-input"></div>
+            <div class="item-basic-input">Dodatkowe bonusy: <input id="extra-bonus-input"></div>
+            <div class="item-basic-input"><label for="reward-bonus-input">Craft / tytan / quest / licytacja (+1 bonus)</label> <input type="checkbox" id="reward-bonus-input"></div>
+            <div class="item-basic-input">Dodatkowe statystyki: <input id="extra-stat-input" placeholder="W formacie: stat1=1;stat2=2"></div>
+            <div class="item-basic-input">Wartość: <input id="pr-input" value="0"></div>
+            <div class="stat-toolbar">
+                <label><input type="checkbox" id="engine-names-toggle"> Nazwy silnikowe statystyk</label>
+            </div>
+            <div class="stat-inputs"></div>
+            <div class="button-wrapper">
+                <span>Slot</span>
+                <input type="number" style="width:32px" id="copy-slot" value="0">
+                <button id="copy-button">Skopiuj kod do pokazania itemu w grze</button>
+                <button id="reset-button">Resetuj</button>
+            </div>
+        </div>
+    </div>
+    <div class="library" id="library-view" hidden>
+        <aside class="library-folders">
+            <div class="folders-header">
+                <span>Foldery</span>
+                <button id="add-folder">+ Nowy folder</button>
+            </div>
+            <ul id="folder-list"></ul>
+        </aside>
+        <main class="library-items">
+            <h2 id="library-title"></h2>
+            <div id="library-cards" class="cards"></div>
+        </main>
+    </div>
+
+    <div class="footer">
+        <div>Strona powstała dzięki wzorom wyprowadzonym przez <a href="https://github.com/hypercu13e/menogram">Hypercube</a>.</div>
+        <div>Wykorzystane grafiki należą do <a href="https://garmory.pl/">Garmory Sp. z o.o.</a>.</div>
+        <div>Oryginalna strona: <a href="https://www.margonem.pl/profile/view,3779166#char_124235,aether">Priw8</a>, odtworzona i rozwijana by <a href="https://www.margonem.pl/profile/view,8028868">Haftan</a>.</div>
+        <div><a href="javascript:void(0)" id="changelog">v1.5.0</a></div>
+    </div>
+
+    <script src="https://commons.margonem.pl/js/tooltips_packedv2.js"></script>
+    <script>
+        // Test parsera z commons na przykładowym przedmiocie - przy błędzie wczytujemy lokalną parę słownik + parser
+        (function () {
+            var ok = false;
+            try {
+                var tip = window.MargoTipsParser.getTip({
+                    id: 1, hid: 1, tpl: 1, name: 'Test', own: 1, loc: 'g', icon: '', x: 0, y: 0,
+                    cl: 1, pr: 1, prc: 'zl', st: 0, stat: 'dmg=10,12;lvl=1;rarity=common',
+                });
+                ok = typeof tip === 'string' && tip.indexOf('item-head') !== -1;
+            } catch (error) {
+                console.warn('Parser tooltipów z commons.margonem.pl nie działa:', error);
+            }
+            window.TIPS_SOURCE = ok ? 'commons' : 'vendor';
+            if (!ok) {
+                console.warn('Używam lokalnych kopii plików tooltipów (vendor/).');
+                document.write('<script src="vendor/dictionary_pl.js"><\/script><script src="vendor/tooltips_packedv2.js"><\/script>');
+            }
+        })();
+    </script>
+    <!-- Kolejność ma znaczenie: każdy plik korzysta z definicji z poprzednich. -->
+    <script src="js/data.js"></script>
+    <script src="js/formulas.js"></script>
+    <script src="js/item.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/library.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/library-view.js"></script>
+    <script>init();</script>
+</body>
+</html>

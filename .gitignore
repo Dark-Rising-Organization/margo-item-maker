@@ -1,0 +1,7 @@
+# W repozytorium jest tylko strona (site/) - zapisane pliki oryginalnej strony,
+# dokumentacja gry i lokalna konfiguracja zostają poza nim
+/*
+!/.gitignore
+!/site/
+
+.vercel
