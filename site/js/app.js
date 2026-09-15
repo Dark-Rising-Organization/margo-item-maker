@@ -421,6 +421,20 @@ function buildInGameCode() {
         }();`;
 }
 
+/**
+ * Lista rozdanych bonusów w nazwach silnikowych, np. "cleanse 5crit, 1da, 3hp".
+ * Na początku bonus legendarny (jeśli jest). Pomijane są pola, które nie zajmują bonusów
+ * (stopień ulepszenia, typ obrażeń broni) oraz wzmocnienie za +5.
+ */
+function buildStatsList() {
+    const state = formState();
+    const bonuses = Object.entries(state.stats)
+        .filter(([stat, amt]) => typeof amt === 'number' && statCost(stat) != 0)
+        .map(([stat, amt]) => `${amt}${ENGINE_NAME_OVERRIDES[stat] ?? stat}`)
+        .join(', ');
+    return [state.stats.legbon, bonuses].filter(Boolean).join(', ');
+}
+
 async function copyToClipboard(text) {
     try {
         await navigator.clipboard.writeText(text);
@@ -576,6 +590,10 @@ function init() {
     });
 
     initLibraryView();
+
+    document.querySelector('#copy-stats-button').addEventListener('click', () => {
+        copyToClipboard(buildStatsList());
+    });
 
     document.querySelector('#copy-button').addEventListener('click', () => {
         copyToClipboard(buildInGameCode());
