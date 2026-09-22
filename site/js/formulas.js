@@ -97,7 +97,8 @@ const STAT_FORMULAS = {
     dmgmulfire: (item, c) => c.amt * 4,
     dmgmulfrost: (item, c) => c.amt * 4,
     dmgmullight: (item, c) => c.amt * 4,
-    dmgmulabsolute: (item, c) => c.amt * 4,
+    // Obrażenia nieuchronne: 5% za bonus (dokumentacja podaje 4% - w grze jest 5%)
+    dmgmulabsolute: (item, c) => c.amt * 5,
 
     // --- Bonusy przeklęte ---
     // Gra zapisuje tylko wartość many; energię wylicza sama (max(1, round(0.444 * mana)))

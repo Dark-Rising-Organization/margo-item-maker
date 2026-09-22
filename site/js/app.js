@@ -30,6 +30,7 @@ const DEFAULT_HASH = '#1|0|0|100||0||Testowy przedmiot|||0';
 
 const CHANGELOG = `
 v1.6.0
+- obrażenia nieuchronne: 5% za bonus (dokumentacja podaje 4%)
 - wzory sprawdzone na przedmiotach z gry: pancerz z bonusu (tylko moc poziomu), mana z bonusu (+5), błyskawice różdżek i orbów
 - wartość wzmocnienia za +5 liczona jak w grze (różnica zaokrąglonej statystyki razem z wartością natywną)
 - ujemny pancerz w zbrojach dla wszystkich profesji
