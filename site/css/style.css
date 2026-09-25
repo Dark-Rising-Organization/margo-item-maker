@@ -52,6 +52,9 @@ a { color: #add8e6; }
 .tab { background: transparent; color: #ccc; border: 1px solid transparent; padding: 6px 14px; cursor: pointer; font-size: 14px; }
 .tab:hover { color: #fff; }
 .tab.active { color: #fff; border-color: #555; background: #ffffff14; }
+/* Link zewnętrzny w pasku - wygląda jak zakładka, ale nie jest nią (nie ma data-view) */
+.topbar-link { color: #ccc; padding: 6px 14px; font-size: 14px; text-decoration: none; border: 1px solid transparent; }
+.topbar-link:hover { color: #fff; }
 
 button { color: #eee; background: #2a2a2a; border: 1px solid #555; padding: 3px 8px; cursor: pointer; }
 button:hover:not(:disabled) { background: #3a3a3a; }
