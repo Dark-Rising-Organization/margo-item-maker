@@ -30,6 +30,8 @@ const DEFAULT_HASH = '#1|0|0|100||0||Testowy przedmiot|||0';
 
 const CHANGELOG = `
 v1.6.0
+- lista statystyk z przedrostkiem rzadkości (np. legring40allprof, herwand43m)
+- biblioteka: kopiowanie folderu / całej biblioteki jako listy i import z wklejonego tekstu (kopia zapasowa)
 - obrażenia nieuchronne: 5% za bonus (dokumentacja podaje 4%)
 - wzory sprawdzone na przedmiotach z gry: pancerz z bonusu (tylko moc poziomu), mana z bonusu (+5), błyskawice różdżek i orbów
 - wartość wzmocnienia za +5 liczona jak w grze (różnica zaokrąglonej statystyki razem z wartością natywną)
@@ -445,6 +447,15 @@ function buildInGameCode() {
 
 const STATS_LIST_PROF_ORDER = 'bwpmth';
 
+// Przedrostek rzadkości przed typem w liście statystyk (np. "legarmor58p: ...")
+const RARITY_SHORT_NAMES = {
+    [Rarity.COMMON]: 'com',
+    [Rarity.UNIQUE]: 'uni',
+    [Rarity.HEROIC]: 'her',
+    [Rarity.UPGRADED]: 'upg',
+    [Rarity.LEGENDARY]: 'leg',
+};
+
 // Krótkie nazwy typów przedmiotów na początku listy statystyk (np. "helmet300mt: ...")
 const CLASS_SHORT_NAMES = {
     [ItemClass.ONEHANDED]: '1h',
@@ -466,7 +477,8 @@ const CLASS_SHORT_NAMES = {
 
 /**
  * Lista rozdanych bonusów w nazwach silnikowych, np. "ring40allprof: cleanse, 5crit, 1da, 3hp, +5, bonus:heal".
- * Kolejno: nagłówek <typ><poziom><profesje> (brak wymagań lub wszystkie profesje = "allprof"), bonus legendarny,
+ * Kolejno: nagłówek <rzadkość><typ><poziom><profesje> (np. "legring40allprof"; brak wymagań lub wszystkie
+ * profesje = "allprof"), bonus legendarny,
  * bonusy "<liczba><statystyka>", typ obrażeń broni ("fire"), stopień ulepszenia ("+5"), wzmocnienie za +5
  * ("bonus:heal") i ręczna zmiana typu natywnej odporności magicznej ("resfire->reslight").
  */
@@ -489,28 +501,37 @@ function buildStatsList(state = formState()) {
     const profs = toCanonicalProfs(state.profs);
     // W liście profesje w kolejności bwpmth (inna niż kanoniczna kolejność kluczy tabel)
     const listProfs = [...profs].sort((a, b) => STATS_LIST_PROF_ORDER.indexOf(a) - STATS_LIST_PROF_ORDER.indexOf(b)).join('');
-    const header = `${CLASS_SHORT_NAMES[state.cl] ?? state.cl}${state.lvl}${profs === '' || profs === 'wpbmth' ? 'allprof' : listProfs}`;
+    const rarity = RARITY_SHORT_NAMES[state.rarity] ?? '';
+    const header = `${rarity}${CLASS_SHORT_NAMES[state.cl] ?? state.cl}${state.lvl}${profs === '' || profs === 'wpbmth' ? 'allprof' : listProfs}`;
     return `${header}: ${[state.stats.legbon, bonuses, ...damageTypes, upgrade, enhancement, resChange].filter(Boolean).join(', ')}`.trimEnd();
 }
 
 /**
  * Odwrotność buildStatsList: "helmet300mt: puncture, 1da, -2reslight, resfire->reslight" -> stan przedmiotu.
- * Lista nie zawiera rzadkości ani bonusu za craft / zbroję składaną - zgadujemy je z liczby rozdanych bonusów
- * (pierwsze dopasowanie, przy którym nie zostaje nic do rozdania). Rozumie też zapis "5upgrade" / "1fire".
+ * Rzadkość jest w przedrostku nagłówka ("leg", "her", "uni", "upg", "com"); w starszych listach bez przedrostka
+ * zgadujemy ją z liczby rozdanych bonusów. Bonus za craft / zbroję składaną zawsze zgadujemy (pierwsze dopasowanie,
+ * przy którym nie zostaje nic do rozdania). Rozumie też zapis "5upgrade" / "1fire".
  * Zwraca { state, warnings } albo rzuca Error z opisem, co jest nie tak.
  */
 function parseStatsList(text, base = formState()) {
     const colon = text.indexOf(':');
-    if (colon == -1) throw new Error('Brak nagłówka zakończonego dwukropkiem, np. "ring40allprof:".');
+    if (colon == -1) throw new Error('Brak nagłówka zakończonego dwukropkiem, np. "legring40allprof:".');
     const header = text.slice(0, colon).trim().toLowerCase();
+
+    // Opcjonalny przedrostek rzadkości ("leg", "her", ...). Bez niego rzadkość jest zgadywana (starsze listy).
+    const rarityEntry = Object.entries(RARITY_SHORT_NAMES).find(([, prefix]) => header.startsWith(prefix));
+    const explicitRarity = rarityEntry ? Number(rarityEntry[0]) : null;
+    const rest = rarityEntry ? header.slice(rarityEntry[1].length) : header;
 
     // Typ: najdłuższa pasująca nazwa (żeby "1.5h" nie zostało wzięte za "1" + ...)
     const classEntry = Object.entries(CLASS_SHORT_NAMES)
         .sort((a, b) => b[1].length - a[1].length)
-        .find(([, name]) => header.startsWith(name) && /^\d/.test(header.slice(name.length)));
+        .find(([, name]) => rest.startsWith(name) && /^\d/.test(rest.slice(name.length)));
     if (!classEntry) throw new Error(`Nieznany typ przedmiotu w nagłówku "${header}".`);
-    const match = /^(\d+)(allprof|[bwpmth]*)$/.exec(header.slice(classEntry[1].length));
-    if (!match) throw new Error(`Nagłówek "${header}" powinien mieć postać <typ><poziom><profesje>, np. helmet300mt.`);
+    const match = /^(\d+)(allprof|[bwpmth]*)$/.exec(rest.slice(classEntry[1].length));
+    if (!match) {
+        throw new Error(`Nagłówek "${header}" powinien mieć postać <rzadkość><typ><poziom><profesje>, np. leghelmet300mt.`);
+    }
 
     const cl = Number(classEntry[0]);
     const state = {
@@ -557,7 +578,12 @@ function parseStatsList(text, base = formState()) {
     const used = Object.entries(state.stats)
         .filter(([, amt]) => typeof amt === 'number')
         .reduce((sum, [stat, amt]) => sum + statCost(stat) * amt, 0);
-    const rarities = state.stats.legbon ? [Rarity.LEGENDARY] : [Rarity.COMMON, Rarity.UNIQUE, Rarity.HEROIC, Rarity.LEGENDARY];
+    const rarities =
+        explicitRarity !== null
+            ? [explicitRarity]
+            : state.stats.legbon
+              ? [Rarity.LEGENDARY]
+              : [Rarity.COMMON, Rarity.UNIQUE, Rarity.HEROIC, Rarity.LEGENDARY];
     const creations = [{ reward: false, folded: false, extra: 0 }, { reward: true, folded: false, extra: 1 }];
     if (cl == ItemClass.ARMOR) creations.push({ reward: false, folded: true, extra: foldedArmorExtraBonuses(state.lvl) });
 
@@ -565,7 +591,7 @@ function parseStatsList(text, base = formState()) {
     // Ulepszone na końcu - w broni 7 bonusów to częściej heroik z craftu (6 + 1) niż przedmiot ulepszony
     const candidates = [
         ...creations.flatMap((creation) => rarities.map((rarity) => candidate(creation, rarity))),
-        ...(state.stats.legbon ? [] : creations.map((creation) => candidate(creation, Rarity.UPGRADED))),
+        ...(state.stats.legbon || explicitRarity !== null ? [] : creations.map((creation) => candidate(creation, Rarity.UPGRADED))),
     ];
     const best =
         candidates.find((candidate) => candidate.left == 0) ??

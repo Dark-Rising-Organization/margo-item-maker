@@ -37,6 +37,7 @@ function renderLibrary() {
     const items = Library.items(libraryFolder === 'all' ? null : libraryFolder);
     const title = libraryFolder === 'all' ? 'Wszystkie przedmioty' : Library.folderName(libraryFolder);
     document.querySelector('#library-title').textContent = `${title} (${items.length})`;
+    document.querySelector('#library-export').textContent = libraryFolder === 'all' ? 'Kopiuj całą bibliotekę' : 'Kopiuj folder';
 
     const compareIds = Library.compareIds();
     const cards = items.map((saved) =>
@@ -62,7 +63,134 @@ function renderLibrary() {
         : '<div class="library-empty">Brak zapisanych przedmiotów. Zapisz przedmiot w kreatorze przyciskiem „Zapisz jako nowy”.</div>';
 }
 
+// =====================================================================
+//  Import / eksport biblioteki jako tekst (kopia zapasowa przez schowek)
+//
+//  [Nazwa folderu]
+//  Nazwa przedmiotu | legring40allprof: cleanse, 5crit, 1da, 3hp
+//
+//  Folder "Bez folderu" ma nagłówek [Bez folderu]. Linie przed pierwszym nagłówkiem trafiają do
+//  folderu otwartego w bibliotece (albo do "Bez folderu"). Grafika przedmiotu nie jest częścią listy.
+// =====================================================================
+
+const NO_FOLDER_NAME = 'Bez folderu';
+
+function exportLibraryText(selection = libraryFolder) {
+    const lines = [];
+    const block = (name, items) => {
+        if (lines.length) lines.push('');
+        lines.push(`[${name}]`);
+        for (const saved of items) lines.push(`${saved.state.name} | ${buildStatsList(saved.state)}`);
+    };
+
+    if (selection === 'all') {
+        const unfiled = Library.items('');
+        if (unfiled.length) block(NO_FOLDER_NAME, unfiled);
+        // Puste foldery też - żeby odtworzyć całą strukturę
+        for (const folder of Library.folders()) block(folder.name, Library.items(folder.id));
+    } else {
+        block(Library.folderName(selection), Library.items(selection));
+    }
+    return lines.join('\n');
+}
+
+/**
+ * Wczytuje przedmioty z tekstu w formacie exportLibraryText. Foldery są dopasowywane po nazwie
+ * (brakujące są tworzone), a przedmioty, które już są w folderze (ta sama nazwa i lista), pomijane.
+ */
+function importLibraryText(text) {
+    const result = { added: 0, duplicates: 0, folders: 0, errors: [], warnings: [] };
+    let folderId = Library.folder(libraryFolder) ? libraryFolder : '';
+
+    text.split(/\r?\n/).forEach((raw, index) => {
+        const line = raw.trim();
+        if (line === '' || line.startsWith('#')) return;
+
+        const header = /^\[(.*)\]$/.exec(line);
+        if (header) {
+            const name = header[1].trim();
+            if (name === '' || name === NO_FOLDER_NAME) {
+                folderId = '';
+            } else {
+                let folder = Library.folders().find((f) => f.name === name);
+                if (!folder) {
+                    folder = Library.addFolder(name);
+                    result.folders++;
+                }
+                folderId = folder.id;
+            }
+            return;
+        }
+
+        // Nazwa przed ostatnim "|" (lista statystyk nie zawiera tego znaku)
+        const separator = line.lastIndexOf('|');
+        const name = separator == -1 ? '' : line.slice(0, separator).trim();
+        const list = line.slice(separator + 1).trim();
+        try {
+            const base = { ...hashToState(DEFAULT_HASH), name, icon: '' };
+            const { state, warnings } = parseStatsList(list, base);
+            if (!name) state.name = list.slice(0, list.indexOf(':')).trim();
+            if (warnings.length) result.warnings.push(`linia ${index + 1}: pominięto ${warnings.join(', ')}`);
+
+            const listText = buildStatsList(state);
+            const exists = Library.items(folderId).some(
+                (saved) => saved.state.name === state.name && buildStatsList(saved.state) === listText,
+            );
+            if (exists) {
+                result.duplicates++;
+            } else {
+                Library.addItem(state, folderId);
+                result.added++;
+            }
+        } catch (error) {
+            result.errors.push(`linia ${index + 1}: ${error.message}`);
+        }
+    });
+    return result;
+}
+
+function showLibraryMessage(text, isError = false) {
+    const message = document.querySelector('#library-message');
+    message.textContent = text;
+    message.classList.toggle('error', isError);
+    message.hidden = false;
+}
+
 function initLibraryView() {
+    document.querySelector('#library-export').addEventListener('click', () => {
+        const count = Library.items(libraryFolder === 'all' ? null : libraryFolder).length;
+        copyToClipboard(exportLibraryText()).then(() =>
+            showLibraryMessage(`Skopiowano listę (${count} przedmiotów). Wklej ją w „Wklej listę (import)”, żeby odtworzyć.`),
+        );
+    });
+
+    const importBox = document.querySelector('#library-import');
+    const importText = document.querySelector('#library-import-text');
+    document.querySelector('#library-import-toggle').addEventListener('click', () => {
+        importBox.hidden = !importBox.hidden;
+        if (!importBox.hidden) importText.focus();
+    });
+    document.querySelector('#library-import-cancel').addEventListener('click', () => {
+        importBox.hidden = true;
+    });
+    document.querySelector('#library-import-run').addEventListener('click', () => {
+        if (importText.value.trim() === '') return;
+        const result = importLibraryText(importText.value);
+        const summary =
+            `Zaimportowano przedmiotów: ${result.added}` +
+            (result.folders ? `, nowe foldery: ${result.folders}` : '') +
+            (result.duplicates ? `, pominięto duplikaty: ${result.duplicates}` : '') +
+            '.';
+        const problems = [...result.errors, ...result.warnings];
+        showLibraryMessage([summary, ...problems].join('\n'), problems.length > 0);
+        if (result.errors.length == 0) {
+            importText.value = '';
+            importBox.hidden = true;
+        }
+        renderLibrary();
+        update();
+    });
+
     for (const tab of document.querySelectorAll('.tab')) {
         tab.addEventListener('click', () => showView(tab.dataset.view));
     }

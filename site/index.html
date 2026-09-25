@@ -46,7 +46,7 @@
                     </span>
                 </div>
                 <div class="save-row">
-                    <input id="stats-list-input" class="stats-list-input" placeholder="Wklej listę statystyk, np. ring40allprof: cleanse, 5crit, 1da, 3hp">
+                    <input id="stats-list-input" class="stats-list-input" placeholder="Wklej listę statystyk, np. legring40allprof: cleanse, 5crit, 1da, 3hp">
                     <button id="stats-list-load">Wczytaj z listy</button>
                 </div>
                 <div class="save-row" id="stats-list-message" hidden></div>
@@ -75,7 +75,22 @@
             <ul id="folder-list"></ul>
         </aside>
         <main class="library-items">
-            <h2 id="library-title"></h2>
+            <div class="library-header">
+                <h2 id="library-title"></h2>
+                <span class="library-actions">
+                    <button id="library-export" title="Kopiuje przedmioty z widoku jako listy statystyk (kopia zapasowa)">Kopiuj listę</button>
+                    <button id="library-import-toggle">Wklej listę (import)</button>
+                </span>
+            </div>
+            <div id="library-import" class="library-import" hidden>
+                <textarea id="library-import-text" rows="8" spellcheck="false"
+                          placeholder="[Nazwa folderu]&#10;Nazwa przedmiotu | legring40allprof: cleanse, 5crit, 1da, 3hp&#10;..."></textarea>
+                <div class="library-import-actions">
+                    <button id="library-import-run">Importuj</button>
+                    <button id="library-import-cancel">Anuluj</button>
+                </div>
+            </div>
+            <div id="library-message" class="library-message" hidden></div>
             <div id="library-cards" class="cards"></div>
         </main>
     </div>
