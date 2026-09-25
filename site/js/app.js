@@ -30,6 +30,7 @@ const DEFAULT_HASH = '#1|0|0|100||0||Testowy przedmiot|||0';
 
 const CHANGELOG = `
 v1.6.0
+- wartość w złocie wg nowego wzoru z 26.03.2026 (poziom, typ, ranga; bez liczby statystyk)
 - lista statystyk z przedrostkiem rzadkości (np. legring40allprof, herwand43m)
 - biblioteka: kopiowanie folderu / całej biblioteki jako listy i import z wklejonego tekstu (kopia zapasowa)
 - obrażenia nieuchronne: 5% za bonus (dokumentacja podaje 4%)

@@ -1,21 +1,5 @@
 'use strict';
 
-// Statystyki pomijane przy liczeniu wartości przedmiotu
-const VALUE_IGNORED_STATS = [
-    'bonus',
-    'bonus_not_selected',
-    'created',
-    'enhancement_upgrade_lvl',
-    'loot',
-    'lowreq',
-    'lvlupgs',
-    'motel',
-    'nodesc',
-    'rarity',
-    'recovered',
-    'timelimit_upgs',
-];
-
 class Item {
     /**
      * @param {number} cl                  typ przedmiotu (ItemClass)
@@ -239,23 +223,17 @@ class Item {
         return result;
     }
 
-    // Wartość przedmiotu w złocie.
-    // Wzór z dokumentacji (lvl_factor * class_factor * ...) nie zgadza się z grą - ten zgadza się z przedmiotami.
+    /**
+     * Wartość przedmiotu w złocie - wzór obowiązujący od 26.03.2026 (ogłoszenie Garmory „Zmiana wartości przedmiotów”):
+     * wartość = współczynnik_poziomu * współczynnik_typu * współczynnik_rangi
+     *   współczynnik_poziomu = -4000 + 200000 / (1 + 45 * e^(-lvl / 45))  (poziom wymagany, bez ulepszenia)
+     *   współczynnik_rangi   = 1 + ranga (0, 1, 3, 7)
+     * Liczba statystyk nie ma już wpływu. Przedmioty utworzone przed zmianą mają w grze starą wartość
+     * (0.7 * typ * (3 + ranga) * 1.05^liczba_statystyk * (lvl^2 + 2.5 * lvl)).
+     * Sprawdzone: tarcza legendarna poz. 101 -> 245 326 (w grze 245.3k).
+     */
     getValue() {
-        const stats = this.export();
-        stats.lvl = this.lvl.toString();
-        if (this.profs.length) stats.reqp = this.profs.toString();
-        stats.rarity = '';
-
-        const statCount = new Set(
-            Object.keys(stats).filter((stat) => !VALUE_IGNORED_STATS.includes(stat)),
-        ).size;
-
-        const multiplier = Classes.valueMultiplier(this.cl);
-        const rarity = RARITY_VALUE[this.rarity];
-        const amount = stats.ammo ? parseInt(stats.ammo) : stats.amount ? parseInt(stats.amount) : 1;
-        const lvl = this.lvl;
-
-        return roundStat(0.7 * multiplier * (3 + rarity) * Math.pow(1.05, statCount) * amount * (lvl * lvl + 2.5 * lvl));
+        const levelFactor = -4000 + 200000 / (1 + 45 * Math.exp(-this.lvl / 45));
+        return roundStat(levelFactor * Classes.valueMultiplier(this.cl) * (1 + RARITY_VALUE[this.rarity]));
     }
 }

@@ -23,14 +23,15 @@ const RARITY_TIER = {
     [Rarity.ARTIFACT]: 4,
 };
 
-// Rzadkość używana we wzorze na wartość przedmiotu (ulepszone liczą się jak unikaty)
+// Ranga we wzorze na wartość przedmiotu (od 26.03.2026): współczynnik_rangi = 1 + ranga
+// (ulepszone liczą się jak heroiczne; artefaktów ogłoszenie nie wymienia - przyjęto jak legendę)
 const RARITY_VALUE = {
     [Rarity.COMMON]: 0,
     [Rarity.UNIQUE]: 1,
-    [Rarity.UPGRADED]: 1,
-    [Rarity.HEROIC]: 2,
-    [Rarity.LEGENDARY]: 3,
-    [Rarity.ARTIFACT]: 4,
+    [Rarity.UPGRADED]: 3,
+    [Rarity.HEROIC]: 3,
+    [Rarity.LEGENDARY]: 7,
+    [Rarity.ARTIFACT]: 7,
 };
 
 // Nazwa rzadkości w statystykach przedmiotu (rarity=...)
@@ -222,17 +223,17 @@ const CLASS_POWER = {
     [ItemClass.GLOVES]: 0.25,
 };
 
+// Współczynnik typu we wzorze na wartość (od 26.03.2026): bronie 1.5, neutralne 0.4, reszta (w tym zbroje i tarcze) 1
 const CLASS_VALUE_MULTIPLIER = {
-    [ItemClass.ARMOR]: 1.8,
-    [ItemClass.ONEHANDED]: 1.8,
-    [ItemClass.ONEANDAHALFHANDED]: 1.8,
-    [ItemClass.TWOHANDED]: 1.8,
-    [ItemClass.RANGED]: 1.8,
-    [ItemClass.SECONDARY]: 1.8,
-    [ItemClass.QUIVER]: 1.8,
-    [ItemClass.WAND]: 1.8,
-    [ItemClass.ORB]: 1.8,
-    [ItemClass.SHIELD]: 1.4,
+    [ItemClass.ONEHANDED]: 1.5,
+    [ItemClass.ONEANDAHALFHANDED]: 1.5,
+    [ItemClass.TWOHANDED]: 1.5,
+    [ItemClass.RANGED]: 1.5,
+    [ItemClass.SECONDARY]: 1.5,
+    [ItemClass.QUIVER]: 1.5,
+    [ItemClass.WAND]: 1.5,
+    [ItemClass.ORB]: 1.5,
+    [ItemClass.NEUTRAL]: 0.4,
 };
 
 // Niszczenie absorpcji: val = współczynnik * (rarity_power + level_power)
